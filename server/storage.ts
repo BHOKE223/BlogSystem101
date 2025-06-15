@@ -315,4 +315,85 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Initialize storage with database connection testing
+async function initializeStorage(): Promise<IStorage> {
+  try {
+    // Test basic database connection by creating tables if they don't exist
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL
+      );
+      
+      CREATE TABLE IF NOT EXISTS blogs (
+        id TEXT PRIMARY KEY,
+        keyword TEXT NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        image_url TEXT,
+        image_description TEXT,
+        images TEXT,
+        status TEXT NOT NULL DEFAULT 'draft',
+        generated_topics TEXT,
+        word_count TEXT,
+        wordpress_url TEXT,
+        wordpress_post_id TEXT,
+        published_at TEXT,
+        category_id TEXT,
+        tag_ids TEXT,
+        meta_description TEXT,
+        github_file_path TEXT,
+        github_commit_sha TEXT,
+        backed_up_to_github TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      
+      CREATE TABLE IF NOT EXISTS github_credentials (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        name TEXT NOT NULL,
+        github_token TEXT NOT NULL,
+        repository_owner TEXT NOT NULL,
+        repository_name TEXT NOT NULL,
+        branch TEXT DEFAULT 'main' NOT NULL,
+        base_path TEXT DEFAULT 'content/blogs' NOT NULL,
+        is_default TEXT DEFAULT 'false',
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      
+      CREATE TABLE IF NOT EXISTS file_backup_history (
+        id SERIAL PRIMARY KEY,
+        file_path TEXT NOT NULL UNIQUE,
+        file_hash TEXT NOT NULL,
+        github_commit_sha TEXT,
+        last_backup_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        file_size INTEGER NOT NULL
+      );
+      
+      INSERT INTO users (username, password) VALUES ('admin', 'password') ON CONFLICT (username) DO NOTHING;
+    `);
+    
+    console.log("✅ Using PostgreSQL database storage with initialized tables");
+    return new DatabaseStorage();
+  } catch (error) {
+    console.log("⚠️ Database connection failed, using memory storage with file persistence");
+    return new MemStorage();
+  }
+}
+
+// Initialize storage system
+let storageInstance: IStorage = new MemStorage();
+
+initializeStorage().then(storage => {
+  storageInstance = storage;
+}).catch(error => {
+  console.log("Storage initialization failed:", error);
+});
+
+export const storage = new Proxy({} as IStorage, {
+  get(target, prop) {
+    return storageInstance[prop as keyof IStorage];
+  }
+});
