@@ -1,0 +1,23 @@
+{
+  "name": "AI-Powered SEO Blog Generation Platform",
+  "description": "Advanced blog generation system with WordPress integration and incremental GitHub backup",
+  "version": "1.0.0",
+  "lastBackup": "2025-06-15T12:42:59.897Z",
+  "filesChanged": 23,
+  "filesSkipped": 0,
+  "features": [
+    "AI-powered content generation using OpenAI",
+    "WordPress API integration for publishing",
+    "Unsplash image integration",
+    "SEO optimization and category matching",
+    "Smart incremental GitHub source code backup",
+    "Real-time content preview and editing",
+    "Image replacement and optimization"
+  ],
+  "technology": {
+    "frontend": "React + TypeScript + Tailwind CSS + Vite",
+    "backend": "Node.js + Express + TypeScript",
+    "database": "PostgreSQL with Drizzle ORM",
+    "apis": "OpenAI, WordPress REST API, Unsplash"
+  }
+}
