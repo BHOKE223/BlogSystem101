@@ -1,5 +1,8 @@
 import { GitHubService } from "./github-service";
 import { storage } from "./storage";
+import { db } from "./db";
+import { fileBackupHistory, type InsertFileBackupHistory } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -41,19 +44,49 @@ class SourceBackupService {
   }
 
   private async getFileBackupRecord(filePath: string) {
-    const records = this.loadBackupRecords();
-    return records[filePath] || null;
+    // Try database first, fall back to file storage
+    try {
+      const [record] = await db.select().from(fileBackupHistory).where(eq(fileBackupHistory.filePath, filePath));
+      return record || null;
+    } catch (error) {
+      // Database not available, use file storage
+      const records = this.loadBackupRecords();
+      return records[filePath] || null;
+    }
   }
 
   private async updateFileBackupRecord(filePath: string, fileHash: string, commitSha: string, fileSize: number) {
-    const records = this.loadBackupRecords();
-    records[filePath] = {
-      fileHash,
-      githubCommitSha: commitSha,
-      fileSize,
-      lastBackupAt: new Date().toISOString()
-    };
-    this.saveBackupRecords(records);
+    // Try database first, fall back to file storage
+    try {
+      const backupData: InsertFileBackupHistory = {
+        filePath,
+        fileHash,
+        githubCommitSha: commitSha,
+        fileSize
+      };
+
+      await db.insert(fileBackupHistory)
+        .values(backupData)
+        .onConflictDoUpdate({
+          target: fileBackupHistory.filePath,
+          set: {
+            fileHash: backupData.fileHash,
+            githubCommitSha: backupData.githubCommitSha,
+            fileSize: backupData.fileSize,
+            lastBackupAt: new Date()
+          }
+        });
+    } catch (error) {
+      // Database not available, use file storage
+      const records = this.loadBackupRecords();
+      records[filePath] = {
+        fileHash,
+        githubCommitSha: commitSha,
+        fileSize,
+        lastBackupAt: new Date().toISOString()
+      };
+      this.saveBackupRecords(records);
+    }
   }
 
   async backupSourceCode(): Promise<void> {
@@ -125,11 +158,22 @@ class SourceBackupService {
             const fileName = path.basename(filePath);
             const githubPath = filePath; // Keep original structure
             
-            // Create or update file without SHA for initial uploads
+            // Get existing file to retrieve SHA for updates
+            let existingSha: string | undefined;
+            try {
+              const existingFile = await githubService.getFile(githubPath);
+              existingSha = existingFile?.sha;
+            } catch (error) {
+              // File doesn't exist yet, no SHA needed
+              existingSha = undefined;
+            }
+
+            // Create or update file with proper SHA handling
             const result = await githubService.createOrUpdateFile(
               githubPath,
               content,
-              `Update ${fileName} - incremental backup`
+              `Update ${fileName} - incremental backup`,
+              existingSha
             );
             
             // Update backup record in database
