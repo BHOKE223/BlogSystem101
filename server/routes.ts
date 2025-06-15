@@ -1155,45 +1155,122 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       
       cleanExcerpt = finalExcerpt || 'A comprehensive guide on sustainable fashion and ethical living.';
       
-      // WordPress REST API integration with multiple categories and tags
+      // WordPress REST API integration with dynamic category validation
       let categoryIds = seoData?.categoryIds || (categoryId ? [categoryId] : []);
       
-      // Validate category IDs exist in WordPress
+      // Fetch current available categories from WordPress
+      let availableCategories = [];
+      try {
+        const categoriesResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/categories?per_page=100`, {
+          headers: { 'Authorization': `Basic ${authHeader}` }
+        });
+        
+        if (categoriesResponse.ok) {
+          availableCategories = await categoriesResponse.json();
+          console.log(`📂 Found ${availableCategories.length} available categories in WordPress`);
+        }
+      } catch (error) {
+        console.log(`⚠️ Failed to fetch WordPress categories: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      
+      // Validate requested category IDs against available categories
       const validCategoryIds = [];
+      const availableCategoryIds = availableCategories.map((cat: any) => cat.id);
+      
       for (const catId of categoryIds) {
+        if (availableCategoryIds.includes(catId)) {
+          validCategoryIds.push(catId);
+          const categoryName = availableCategories.find((cat: any) => cat.id === catId)?.name;
+          console.log(`✅ Using valid category: ${categoryName} (ID: ${catId})`);
+        } else {
+          console.log(`⚠️ Category ID ${catId} not found in current WordPress categories`);
+        }
+      }
+      
+      // Smart fallback based on content analysis and available categories
+      if (validCategoryIds.length === 0 && availableCategories.length > 0) {
+        const title = blog.title.toLowerCase();
+        const content = blog.content.toLowerCase();
+        
+        // Find best matching category based on content
+        let bestMatch = null;
+        
+        // Look for AI/automation content
+        if (title.includes('ai') || title.includes('automation') || content.includes('artificial intelligence')) {
+          bestMatch = availableCategories.find((cat: any) => 
+            cat.name.toLowerCase().includes('ai') || 
+            cat.name.toLowerCase().includes('automation') ||
+            cat.name.toLowerCase().includes('tool')
+          );
+        }
+        
+        // Look for income/business content
+        if (!bestMatch && (title.includes('income') || title.includes('money') || content.includes('passive income'))) {
+          bestMatch = availableCategories.find((cat: any) => 
+            cat.name.toLowerCase().includes('income') || 
+            cat.name.toLowerCase().includes('business') ||
+            cat.name.toLowerCase().includes('affiliate')
+          );
+        }
+        
+        // Look for travel/nomad content
+        if (!bestMatch && (title.includes('travel') || title.includes('nomad') || content.includes('digital nomad'))) {
+          bestMatch = availableCategories.find((cat: any) => 
+            cat.name.toLowerCase().includes('nomad') || 
+            cat.name.toLowerCase().includes('travel') ||
+            cat.name.toLowerCase().includes('abroad')
+          );
+        }
+        
+        // Use first available category as ultimate fallback
+        if (!bestMatch && availableCategories.length > 0) {
+          bestMatch = availableCategories[0];
+        }
+        
+        if (bestMatch) {
+          validCategoryIds.push(bestMatch.id);
+          console.log(`📂 Using smart fallback category: ${bestMatch.name} (ID: ${bestMatch.id})`);
+        }
+      }
+      
+      console.log(`📂 Final validated category IDs:`, validCategoryIds);
+
+      // Validate tags against WordPress available tags
+      let validTagIds = [];
+      if (tagIds && tagIds.length > 0) {
         try {
-          const catResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/categories/${catId}`, {
+          const tagsResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/tags?per_page=100`, {
             headers: { 'Authorization': `Basic ${authHeader}` }
           });
-          if (catResponse.ok) {
-            validCategoryIds.push(catId);
-          } else {
-            console.log(`⚠️ Category ID ${catId} doesn't exist, skipping`);
+          
+          if (tagsResponse.ok) {
+            const availableTags = await tagsResponse.json();
+            const availableTagIds = availableTags.map((tag: any) => tag.id);
+            
+            for (const tagId of tagIds) {
+              if (availableTagIds.includes(tagId)) {
+                validTagIds.push(tagId);
+                const tagName = availableTags.find((tag: any) => tag.id === tagId)?.name;
+                console.log(`✅ Using valid tag: ${tagName} (ID: ${tagId})`);
+              } else {
+                console.log(`⚠️ Tag ID ${tagId} not found in current WordPress tags`);
+              }
+            }
           }
         } catch (error) {
-          console.log(`⚠️ Failed to validate category ID ${catId}`);
+          console.log(`⚠️ Failed to validate WordPress tags: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          validTagIds = tagIds; // Use original tags if validation fails
         }
       }
+
+      console.log(`🏷️ Final validated tag IDs:`, validTagIds);
       
-      // Use AI Tools & Automation (ID 7) as fallback for AI-related content
-      if (validCategoryIds.length === 0) {
-        const title = blog.title.toLowerCase();
-        if (title.includes('ai') || title.includes('automation') || title.includes('tool')) {
-          validCategoryIds.push(7); // AI Tools & Automation
-          console.log(`📂 Using AI Tools & Automation category as fallback`);
-        } else {
-          validCategoryIds.push(11); // Digital Nomad Life as general fallback
-          console.log(`📂 Using Digital Nomad Life category as fallback`);
-        }
-      }
-      
-      console.log(`📂 Final category IDs:`, validCategoryIds);
       const wordpressData = {
         title: blog.title,
         content: finalHtmlContent,
         status: 'publish',
         categories: validCategoryIds,
-        tags: tagIds,
+        tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
         featured_media: featuredMediaId,
         meta: {
