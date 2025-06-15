@@ -1156,13 +1156,43 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       cleanExcerpt = finalExcerpt || 'A comprehensive guide on sustainable fashion and ethical living.';
       
       // WordPress REST API integration with multiple categories and tags
-      const categoryIds = seoData?.categoryIds || (categoryId ? [categoryId] : []);
-      console.log(`📂 Using category IDs:`, categoryIds);
+      let categoryIds = seoData?.categoryIds || (categoryId ? [categoryId] : []);
+      
+      // Validate category IDs exist in WordPress
+      const validCategoryIds = [];
+      for (const catId of categoryIds) {
+        try {
+          const catResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/categories/${catId}`, {
+            headers: { 'Authorization': `Basic ${authHeader}` }
+          });
+          if (catResponse.ok) {
+            validCategoryIds.push(catId);
+          } else {
+            console.log(`⚠️ Category ID ${catId} doesn't exist, skipping`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Failed to validate category ID ${catId}`);
+        }
+      }
+      
+      // Use AI Tools & Automation (ID 7) as fallback for AI-related content
+      if (validCategoryIds.length === 0) {
+        const title = blog.title.toLowerCase();
+        if (title.includes('ai') || title.includes('automation') || title.includes('tool')) {
+          validCategoryIds.push(7); // AI Tools & Automation
+          console.log(`📂 Using AI Tools & Automation category as fallback`);
+        } else {
+          validCategoryIds.push(11); // Digital Nomad Life as general fallback
+          console.log(`📂 Using Digital Nomad Life category as fallback`);
+        }
+      }
+      
+      console.log(`📂 Final category IDs:`, validCategoryIds);
       const wordpressData = {
         title: blog.title,
         content: finalHtmlContent,
         status: 'publish',
-        categories: categoryIds,
+        categories: validCategoryIds,
         tags: tagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
         featured_media: featuredMediaId,
