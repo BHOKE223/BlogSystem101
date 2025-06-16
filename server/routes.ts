@@ -1094,14 +1094,10 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<p[^>]*><img[^>]*><\/p>/gm, '');
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<em>Photo by[^<]*<\/em>/gm, '');
       
-      // FINAL APPROACH: Featured media for excerpts, content images preserved, CSS prevents duplication
+      // SOLUTION: No featured media to prevent API errors, use content image injection for excerpts
       let featuredMediaId = null;
       
-      if (featuredImageUrl && featuredImageUrl.trim()) {
-        console.log(`🖼️ Setting featured media URL for excerpts: ${featuredImageUrl}`);
-        // Use WordPress external image meta approach instead of uploading
-        featuredMediaId = 'external';
-      }
+      console.log(`🖼️ Using content-only approach with excerpt image injection`);
       
       // Set finalHtmlContent to include the converted image HTML + CSS to hide featured image on individual posts
       let finalHtmlContent = htmlContent;
@@ -1316,11 +1312,9 @@ document.addEventListener('DOMContentLoaded', function() {
         categories: validCategoryIds,
         tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
-        featured_media: featuredMediaId, // Featured media for excerpts, hidden on individual posts
+        // No featured_media to prevent API errors
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
-          _thumbnail_id: featuredMediaId || '',
-          _thumbnail_url: featuredImageUrl || '',
           _wp_attachment_image_alt: 'Featured image'
         }
       };
@@ -1332,7 +1326,6 @@ document.addEventListener('DOMContentLoaded', function() {
         categoryCount: wordpressData.categories.length,
         tags: wordpressData.tags,
         tagCount: wordpressData.tags.length,
-        featuredMedia: wordpressData.featured_media,
         featuredImageUrl: featuredImageUrl,
         featuredMediaId: featuredMediaId
       });
