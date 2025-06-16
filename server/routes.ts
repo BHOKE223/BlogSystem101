@@ -1016,22 +1016,22 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         console.log(`Extracted image URL for content: ${featuredImageUrl}`);
       }
 
-      // HYBRID SOLUTION: Set featured_media for excerpts, hide it on main article with CSS
+      // SMART SOLUTION: Extract image for featured media, remove from content to prevent duplication
       const imageMatches = htmlContent.match(/!\[([^\]]*)\]\(([^)]+)\)/g);
       console.log(`Found ${imageMatches ? imageMatches.length : 0} images in markdown content`);
       if (imageMatches) {
         console.log('Images found:', imageMatches);
       }
       
-      // Convert markdown images to HTML img tags in content
-      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="width: 100%; max-width: 600px; height: auto; margin: 20px 0; border-radius: 8px;" />');
+      // Remove all images and photo credits from content (featured image will handle display)
+      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, ''); // Remove markdown images
+      htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, ''); // Remove photo credits
+      htmlContent = htmlContent.replace(/<img[^>]*>/g, ''); // Remove any HTML img tags
+      htmlContent = htmlContent.replace(/\n\s*\n/g, '\n'); // Clean up extra line breaks
       
-      // Keep image captions but clean them up
-      htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, '<p style="font-style: italic; color: #666; font-size: 14px; text-align: center; margin: 5px 0 20px 0;">Photo by$1</p>');
+      console.log(`🧹 Removed all images from content - featured image will handle display`);
       
-      // Simple solution: Only content images, no featured media
-      
-      console.log(`🖼️ Simple solution: Content images only, no featured media to prevent duplication`);
+      console.log(`🎯 Smart solution: Featured image for display, content cleaned of images`);
 
       // Remove the H1 title to prevent duplicate titles (WordPress handles the post title)
       htmlContent = htmlContent.replace(/^# .+$/gm, '');
@@ -1125,18 +1125,8 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         }
       }
       
-      // Remove ALL images from content to prevent duplication (featured image handles display)
+      // Use cleaned content (images already removed above)
       let finalHtmlContent = htmlContent;
-      
-      // Strip out all image tags and related content
-      finalHtmlContent = finalHtmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, ''); // Remove markdown images
-      finalHtmlContent = finalHtmlContent.replace(/<img[^>]*>/g, ''); // Remove HTML img tags
-      finalHtmlContent = finalHtmlContent.replace(/<p[^>]*><\/p>/g, ''); // Remove empty paragraphs
-      finalHtmlContent = finalHtmlContent.replace(/\*Photo by[^*]*\*/g, ''); // Remove photo credits
-      finalHtmlContent = finalHtmlContent.replace(/<em>Photo by[^<]*<\/em>/g, ''); // Remove HTML photo credits
-      finalHtmlContent = finalHtmlContent.replace(/\n\s*\n/g, '\n'); // Clean up extra line breaks
-      
-      console.log(`🧹 Cleaned content: removed all images to prevent duplication with featured image`);
       
       // Debug: Check if images are in finalHtmlContent
       const imagesInFinal = finalHtmlContent.match(/<img[^>]*>/g);
