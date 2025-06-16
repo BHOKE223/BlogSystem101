@@ -1135,14 +1135,21 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
                 const imageUrl = firstImageMatch[2]; // Extract the URL from the match
                 const imageId = imageUrl.split('?')[0].split('/').pop(); // Get the unique image ID
                 
-                // Remove all images with the same base URL/ID
-                finalHtmlContent = htmlContent.replace(new RegExp(`!\\[[^\\]]*\\]\\([^)]*${imageId}[^)]*\\)`, 'g'), '').trim();
+                // Escape special regex characters in imageId
+                const escapedImageId = imageId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 
-                // Also remove any HTML img tags with the same image ID
-                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src="[^"]*${imageId}[^"]*"[^>]*>`, 'g'), '').trim();
+                // Remove markdown images with the same base URL/ID
+                finalHtmlContent = htmlContent.replace(new RegExp(`!\\[[^\\]]*\\]\\([^)]*${escapedImageId}[^)]*\\)`, 'g'), '').trim();
                 
-                // Clean up any empty paragraphs left behind
+                // Remove HTML img tags with the same image ID
+                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src="[^"]*${escapedImageId}[^"]*"[^>]*>`, 'gi'), '').trim();
+                
+                // Remove any remaining img tags that contain the same image file
+                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src="[^"]*${featuredImageUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"]*"[^>]*>`, 'gi'), '').trim();
+                
+                // Clean up empty paragraphs and photo credits
                 finalHtmlContent = finalHtmlContent.replace(/<p[^>]*>\s*<\/p>/g, '').trim();
+                finalHtmlContent = finalHtmlContent.replace(/<p[^>]*>\s*<em>Photo by[^<]*<\/em>\s*<\/p>/g, '').trim();
                 
                 console.log(`🖼️ Removed all instances of featured image (${imageId}) from content to avoid duplicates`);
               } else {
