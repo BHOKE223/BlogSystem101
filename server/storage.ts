@@ -270,17 +270,29 @@ export class DatabaseStorage implements IStorage {
   async saveWordPressCredentials(credentials: any): Promise<any> {
     const [existing] = await db.select().from(wordpressCredentials).limit(1);
     
+    // Filter out undefined/null values and format data properly
+    const cleanCredentials = {
+      name: credentials.name || existing?.name,
+      wordpressUrl: credentials.wordpressUrl || existing?.wordpressUrl,
+      username: credentials.username || existing?.username,
+      password: credentials.password || existing?.password,
+      isDefault: String(credentials.isDefault || existing?.isDefault || "true"),
+    };
+    
     if (existing) {
       const [updated] = await db
         .update(wordpressCredentials)
-        .set(credentials)
+        .set(cleanCredentials)
         .where(eq(wordpressCredentials.id, existing.id))
         .returning();
       return updated;
     } else {
       const [created] = await db
         .insert(wordpressCredentials)
-        .values(credentials)
+        .values({
+          ...cleanCredentials,
+          userId: null,
+        })
         .returning();
       return created;
     }
