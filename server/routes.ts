@@ -1100,7 +1100,11 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       // Set finalHtmlContent to include the converted image HTML
       let finalHtmlContent = htmlContent;
       
-      console.log(`🖼️ Hybrid solution: Featured image for excerpts, hidden on individual posts with CSS`);
+      // Debug: Check if images are in finalHtmlContent
+      const imagesInFinal = finalHtmlContent.match(/<img[^>]*>/g);
+      console.log(`🔍 Images in finalHtmlContent after conversion: ${imagesInFinal ? imagesInFinal.length : 0}`);
+      
+      console.log(`🖼️ Simple solution: Content images only, no featured media to prevent duplication`);
 
       // Create completely clean excerpt by processing the original content
       let cleanExcerpt = blog.content;
