@@ -1299,6 +1299,12 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
 
       console.log(`🏷️ Final validated tag IDs:`, validTagIds);
       
+      // Add featured image to content if available, but not as featured_media to avoid theme duplication
+      if (featuredImageUrl && featuredImageUrl.trim()) {
+        const featuredImageHtml = `<img src="${featuredImageUrl}" alt="${blog.title}" style="width: 100%; height: auto; margin-bottom: 20px;" />`;
+        finalHtmlContent = featuredImageHtml + finalHtmlContent;
+      }
+
       const wordpressData = {
         title: blog.title,
         content: finalHtmlContent,
@@ -1306,7 +1312,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         categories: validCategoryIds,
         tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
-        // Remove featured_media to prevent display on individual posts
+        featured_media: featuredMediaId, // For excerpts and social sharing
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
           _wp_attachment_image_alt: 'Featured image'
