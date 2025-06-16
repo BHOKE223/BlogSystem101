@@ -1047,11 +1047,9 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<p[^>]*><img[^>]*><\/p>/gm, '');
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<em>Photo by[^<]*<\/em>/gm, '');
       
-      // Use original HTML content WITH images for WordPress post content
-      const finalHtmlContent = htmlContent;
-
       // Upload featured image with non-blocking error handling
       let featuredMediaId = null;
+      let finalHtmlContent = htmlContent;
       if (featuredImageUrl && firstImageMatch) {
         console.log(`🖼️ Attempting featured image upload: ${featuredImageUrl.substring(0, 80)}...`);
         
@@ -1093,6 +1091,10 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
                 const mediaData = await uploadResponse.json();
                 featuredMediaId = mediaData.id;
                 console.log(`✅ Featured image uploaded successfully: ID ${featuredMediaId}`);
+                
+                // Remove first image from content to prevent duplicate with featured image
+                finalHtmlContent = htmlContent.replace(firstImageMatch[0], '').trim();
+                console.log(`🖼️ Removed first image from content to avoid duplicate with featured image`);
               } else {
                 console.warn(`⚠️ Featured image upload failed: ${uploadResponse.status} - continuing without featured image`);
               }
