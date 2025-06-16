@@ -1008,12 +1008,17 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       // Convert markdown to WordPress blocks format that was working earlier
       let htmlContent = blog.content;
 
-      // Extract first image for content display
-      const firstImageMatch = blog.content.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+      // Extract image for content display - prioritize blog.imageUrl, then extract from markdown
       let featuredImageUrl = '';
-      if (firstImageMatch) {
-        featuredImageUrl = firstImageMatch[2];
-        console.log(`Extracted image URL for content: ${featuredImageUrl}`);
+      if (blog.imageUrl && blog.imageUrl.trim()) {
+        featuredImageUrl = blog.imageUrl;
+        console.log(`Using blog imageUrl for content: ${featuredImageUrl}`);
+      } else {
+        const firstImageMatch = blog.content.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+        if (firstImageMatch) {
+          featuredImageUrl = firstImageMatch[2];
+          console.log(`Extracted image URL from markdown: ${featuredImageUrl}`);
+        }
       }
 
       // SMART SOLUTION: Extract image for featured media, remove from content to prevent duplication
