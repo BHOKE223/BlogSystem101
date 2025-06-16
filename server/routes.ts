@@ -1016,14 +1016,22 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         console.log(`Extracted featured image URL: ${featuredImageUrl}`);
       }
 
-      // Keep all images in content - convert markdown images to HTML
+      // OPTION A: Remove ALL images from content (only use featured_media)
       const imageMatches = htmlContent.match(/!\[([^\]]*)\]\(([^)]+)\)/g);
       console.log(`Found ${imageMatches ? imageMatches.length : 0} images in markdown content`);
       if (imageMatches) {
         console.log('Images found:', imageMatches);
       }
       
-      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="width: 100%; height: auto; margin: 20px 0;" />');
+      // Remove ALL markdown images from content
+      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '');
+      
+      // Remove image captions and photo credits
+      htmlContent = htmlContent.replace(/\*Photo by[^*]*\*/g, '');
+      htmlContent = htmlContent.replace(/\*[^*]*Unsplash[^*]*\*/g, '');
+      htmlContent = htmlContent.replace(/\*[^*]*Photo[^*]*\*/g, '');
+      
+      console.log(`🖼️ Removed ALL images from content - using featured_media only`);
 
       // Remove the H1 title to prevent duplicate titles (WordPress handles the post title)
       htmlContent = htmlContent.replace(/^# .+$/gm, '');
@@ -1088,6 +1096,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       
       // Upload featured image with non-blocking error handling
       let featuredMediaId = null;
+      // Set finalHtmlContent to the cleaned version without any images
       let finalHtmlContent = htmlContent;
       if (featuredImageUrl && firstImageMatch) {
         console.log(`🖼️ Attempting featured image upload: ${featuredImageUrl.substring(0, 80)}...`);
@@ -1131,39 +1140,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
                 featuredMediaId = mediaData.id;
                 console.log(`✅ Featured image uploaded successfully: ID ${featuredMediaId}`);
                 
-                // Remove all instances of the featured image from content to prevent duplicates
-                const imageUrl = firstImageMatch[2]; // Extract the URL from the match
-                const imageId = imageUrl.split('?')[0].split('/').pop() || 'unknown'; // Get the unique image ID
-                
-                // Escape special regex characters in imageId
-                const escapedImageId = imageId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                
-                console.log(`🔍 Attempting to remove all instances of image: ${imageId}`);
-                console.log(`📝 Content before image removal (length: ${htmlContent.length})`);
-                
-                // Step 1: Remove the entire first paragraph containing the image (markdown format)
-                finalHtmlContent = htmlContent.replace(new RegExp(`^.*!\\[[^\\]]*\\]\\([^)]*${escapedImageId}[^)]*\\).*$`, 'gm'), '').trim();
-                
-                // Step 2: Remove any remaining markdown images with the same ID
-                finalHtmlContent = finalHtmlContent.replace(new RegExp(`!\\[[^\\]]*\\]\\([^)]*${escapedImageId}[^)]*\\)`, 'g'), '').trim();
-                
-                // Step 3: Remove HTML img tags with the same image ID (multiple patterns)
-                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src="[^"]*${escapedImageId}[^"]*"[^>]*>`, 'gi'), '').trim();
-                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src='[^']*${escapedImageId}[^']*'[^>]*>`, 'gi'), '').trim();
-                
-                // Step 4: Remove paragraphs containing only the image
-                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<p[^>]*>\\s*<img[^>]*${escapedImageId}[^>]*>\\s*</p>`, 'gi'), '').trim();
-                
-                // Step 5: Remove the exact featured image URL if it appears
-                const escapedImageUrl = featuredImageUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src="[^"]*${escapedImageUrl}[^"]*"[^>]*>`, 'gi'), '').trim();
-                
-                // Step 6: Clean up empty paragraphs and photo credits
-                finalHtmlContent = finalHtmlContent.replace(/<p[^>]*>\s*<\/p>/g, '').trim();
-                finalHtmlContent = finalHtmlContent.replace(/<p[^>]*>\s*<em>Photo by[^<]*<\/em>\s*<\/p>/g, '').trim();
-                
-                console.log(`📝 Content after image removal (length: ${finalHtmlContent.length})`);
-                console.log(`🖼️ Removed all instances of featured image (${imageId}) from content to avoid duplicates`);
+                console.log(`🖼️ Featured image uploaded and will be used as WordPress featured_media only`);
               } else {
                 console.warn(`⚠️ Featured image upload failed: ${uploadResponse.status} - continuing without featured image`);
               }
