@@ -1094,41 +1094,22 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<p[^>]*><img[^>]*><\/p>/gm, '');
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<em>Photo by[^<]*<\/em>/gm, '');
       
-      // HYBRID SOLUTION: Featured media for excerpts + CSS hiding on individual posts
+      // FINAL APPROACH: Featured media for excerpts, content images preserved, CSS prevents duplication
       let featuredMediaId = null;
       
       if (featuredImageUrl && featuredImageUrl.trim()) {
-        console.log(`🖼️ Uploading featured image for excerpts: ${featuredImageUrl}`);
-        try {
-          const imageResponse = await fetch(featuredImageUrl);
-          const imageBuffer = await imageResponse.arrayBuffer();
-          const fileName = `featured-${Date.now()}.jpg`;
-          
-          const uploadResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/media`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
-              'Content-Disposition': `attachment; filename="${fileName}"`
-            },
-            body: imageBuffer
-          });
-          
-          if (uploadResponse.ok) {
-            const uploadData = await uploadResponse.json();
-            featuredMediaId = uploadData.id;
-            console.log(`✅ Featured media uploaded with ID: ${featuredMediaId}`);
-          }
-        } catch (error) {
-          console.log(`⚠️ Failed to upload featured image: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+        console.log(`🖼️ Setting featured media URL for excerpts: ${featuredImageUrl}`);
+        // Use WordPress external image meta approach instead of uploading
+        featuredMediaId = 'external';
       }
       
       // Set finalHtmlContent to include the converted image HTML + CSS to hide featured image on individual posts
       let finalHtmlContent = htmlContent;
       
-      // Add CSS to hide featured image on single posts (not excerpts)
-      const hideFeatureImageCSS = `
+      // Add CSS and JavaScript to manage image display properly
+      const imageManagementScript = `
 <style>
+/* Hide featured images on single posts, show on excerpts */
 .single-post .post-thumbnail,
 .single .post-thumbnail,
 article.single .featured-image,
@@ -1138,9 +1119,31 @@ article.single .featured-image,
 .single .wp-post-image {
   display: none !important;
 }
-</style>`;
 
-      finalHtmlContent = hideFeatureImageCSS + finalHtmlContent;
+/* Ensure excerpt images are visible */
+.excerpt .post-thumbnail,
+.archive .post-thumbnail,
+.blog .post-thumbnail {
+  display: block !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Additional JavaScript to ensure proper image handling
+  if (document.body.classList.contains('single') || document.body.classList.contains('single-post')) {
+    // Hide any featured images that might still show
+    const featuredImages = document.querySelectorAll('.post-thumbnail, .featured-image, .wp-post-image');
+    featuredImages.forEach(img => {
+      if (img.closest('.entry-header') || img.closest('.post-header')) {
+        img.style.display = 'none';
+      }
+    });
+  }
+});
+</script>`;
+
+      finalHtmlContent = imageManagementScript + finalHtmlContent;
       
       // Debug: Check if images are in finalHtmlContent
       const imagesInFinal = finalHtmlContent.match(/<img[^>]*>/g);
@@ -1316,7 +1319,8 @@ article.single .featured-image,
         featured_media: featuredMediaId, // Featured media for excerpts, hidden on individual posts
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
-          _thumbnail_id: featuredImageUrl ? 'external' : '',
+          _thumbnail_id: featuredMediaId || '',
+          _thumbnail_url: featuredImageUrl || '',
           _wp_attachment_image_alt: 'Featured image'
         }
       };
