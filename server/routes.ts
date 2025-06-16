@@ -1008,35 +1008,22 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       // Convert markdown to WordPress blocks format that was working earlier
       let htmlContent = blog.content;
 
-      // Extract image for content display - prioritize blog.imageUrl, then extract from markdown
+      // Extract first image for featured image BEFORE any processing
+      const firstImageMatch = blog.content.match(/!\[([^\]]*)\]\(([^)]+)\)/);
       let featuredImageUrl = '';
-      if (blog.imageUrl && blog.imageUrl.trim()) {
-        featuredImageUrl = blog.imageUrl;
-        console.log(`Using blog imageUrl for content: ${featuredImageUrl}`);
-      } else {
-        const firstImageMatch = blog.content.match(/!\[([^\]]*)\]\(([^)]+)\)/);
-        if (firstImageMatch) {
-          featuredImageUrl = firstImageMatch[2];
-          console.log(`Extracted image URL from markdown: ${featuredImageUrl}`);
-        }
+      if (firstImageMatch) {
+        featuredImageUrl = firstImageMatch[2];
+        console.log(`Extracted featured image URL: ${featuredImageUrl}`);
       }
 
-      // SMART SOLUTION: Extract image for featured media, remove from content to prevent duplication
+      // Keep all images in content - convert markdown images to HTML
       const imageMatches = htmlContent.match(/!\[([^\]]*)\]\(([^)]+)\)/g);
       console.log(`Found ${imageMatches ? imageMatches.length : 0} images in markdown content`);
       if (imageMatches) {
         console.log('Images found:', imageMatches);
       }
       
-      // Remove all images and photo credits from content (featured image will handle display)
-      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, ''); // Remove markdown images
-      htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, ''); // Remove photo credits
-      htmlContent = htmlContent.replace(/<img[^>]*>/g, ''); // Remove any HTML img tags
-      htmlContent = htmlContent.replace(/\n\s*\n/g, '\n'); // Clean up extra line breaks
-      
-      console.log(`🧹 Removed all images from content - featured image will handle display`);
-      
-      console.log(`🎯 Smart solution: Featured image for display, content cleaned of images`);
+      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="width: 100%; height: auto; margin: 20px 0;" />');
 
       // Remove the H1 title to prevent duplicate titles (WordPress handles the post title)
       htmlContent = htmlContent.replace(/^# .+$/gm, '');
@@ -1099,52 +1086,67 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<p[^>]*><img[^>]*><\/p>/gm, '');
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<em>Photo by[^<]*<\/em>/gm, '');
       
-      // SMART SOLUTION: Featured image for excerpts, NO content images to prevent duplication
+      // Upload featured image with non-blocking error handling
       let featuredMediaId = null;
-      
-      if (featuredImageUrl && featuredImageUrl.trim()) {
-        console.log(`🖼️ Uploading featured image for excerpts: ${featuredImageUrl}`);
+      let finalHtmlContent = htmlContent;
+      if (featuredImageUrl && firstImageMatch) {
+        console.log(`🖼️ Attempting featured image upload: ${featuredImageUrl.substring(0, 80)}...`);
+        
         try {
-          const imageResponse = await fetch(featuredImageUrl);
-          const imageBuffer = await imageResponse.arrayBuffer();
-          const fileName = `featured-${Date.now()}.jpg`;
+          // Single attempt with reasonable timeout - don't let image upload block the entire publish
+          const imageController = new AbortController();
+          const imageTimeoutId = setTimeout(() => imageController.abort(), 8000);
           
-          // Use FormData for proper file upload
-          const formData = new FormData();
-          const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-          formData.append('file', blob, fileName);
-          formData.append('title', 'Featured Image');
-          formData.append('alt_text', 'Featured image for blog post');
-          
-          const uploadResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/media`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
-            },
-            body: formData
+          const imageResponse = await fetch(featuredImageUrl, {
+            signal: imageController.signal,
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BlogGen/1.0)' }
           });
+          clearTimeout(imageTimeoutId);
           
-          if (uploadResponse.ok) {
-            const uploadData = await uploadResponse.json();
-            featuredMediaId = uploadData.id;
-            console.log(`✅ Featured media uploaded with ID: ${featuredMediaId}`);
+          if (imageResponse.ok) {
+            const imageBuffer = await imageResponse.arrayBuffer();
+            
+            if (imageBuffer.byteLength > 0 && imageBuffer.byteLength < 10000000) { // Max 10MB
+              const contentType = featuredImageUrl.includes('.png') ? 'image/png' : 'image/jpeg';
+              const fileName = `featured-${Date.now()}.${contentType === 'image/png' ? 'png' : 'jpg'}`;
+              
+              const formData = new FormData();
+              formData.append('file', new Blob([imageBuffer], { type: contentType }), fileName);
+              formData.append('title', firstImageMatch[1] || 'Featured Image');
+              formData.append('alt_text', firstImageMatch[1] || '');
+              
+              const uploadController = new AbortController();
+              const uploadTimeoutId = setTimeout(() => uploadController.abort(), 12000);
+              
+              const uploadResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/media`, {
+                method: 'POST',
+                headers: { 'Authorization': `Basic ${authHeader}` },
+                body: formData,
+                signal: uploadController.signal
+              });
+              clearTimeout(uploadTimeoutId);
+              
+              if (uploadResponse.ok) {
+                const mediaData = await uploadResponse.json();
+                featuredMediaId = mediaData.id;
+                console.log(`✅ Featured image uploaded successfully: ID ${featuredMediaId}`);
+                
+                // Remove first image from content to prevent duplicate with featured image
+                finalHtmlContent = htmlContent.replace(firstImageMatch[0], '').trim();
+                console.log(`🖼️ Removed first image from content to avoid duplicate with featured image`);
+              } else {
+                console.warn(`⚠️ Featured image upload failed: ${uploadResponse.status} - continuing without featured image`);
+              }
+            } else {
+              console.warn(`⚠️ Invalid image size: ${imageBuffer.byteLength} bytes - continuing without featured image`);
+            }
           } else {
-            const errorData = await uploadResponse.text();
-            console.log(`⚠️ Featured image upload failed: ${uploadResponse.status} - ${errorData}`);
+            console.warn(`⚠️ Failed to download image: ${imageResponse.status} - continuing without featured image`);
           }
-        } catch (error) {
-          console.log(`⚠️ Failed to upload featured image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } catch (imageError) {
+          console.warn(`⚠️ Image upload error: ${imageError instanceof Error ? imageError.message : imageError} - continuing without featured image`);
         }
       }
-      
-      // Use cleaned content (images already removed above)
-      let finalHtmlContent = htmlContent;
-      
-      // Debug: Check if images are in finalHtmlContent
-      const imagesInFinal = finalHtmlContent.match(/<img[^>]*>/g);
-      console.log(`🔍 Images in finalHtmlContent after conversion: ${imagesInFinal ? imagesInFinal.length : 0}`);
-      
-      console.log(`🎯 Smart solution: Featured image for both excerpts and posts, no content images`);
 
       // Create completely clean excerpt by processing the original content
       let cleanExcerpt = blog.content;
@@ -1304,12 +1306,6 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
 
       console.log(`🏷️ Final validated tag IDs:`, validTagIds);
       
-      // Add featured image to content if available, but not as featured_media to avoid theme duplication
-      if (featuredImageUrl && featuredImageUrl.trim()) {
-        const featuredImageHtml = `<img src="${featuredImageUrl}" alt="${blog.title}" style="width: 100%; height: auto; margin-bottom: 20px;" />`;
-        finalHtmlContent = featuredImageHtml + finalHtmlContent;
-      }
-
       const wordpressData = {
         title: blog.title,
         content: finalHtmlContent,
@@ -1317,9 +1313,10 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         categories: validCategoryIds,
         tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
-        featured_media: featuredMediaId, // For excerpts and social sharing
+        featured_media: featuredMediaId,
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
+          _thumbnail_id: featuredImageUrl ? 'external' : '',
           _wp_attachment_image_alt: 'Featured image'
         }
       };
@@ -1331,6 +1328,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         categoryCount: wordpressData.categories.length,
         tags: wordpressData.tags,
         tagCount: wordpressData.tags.length,
+        featuredMedia: wordpressData.featured_media,
         featuredImageUrl: featuredImageUrl,
         featuredMediaId: featuredMediaId
       });
