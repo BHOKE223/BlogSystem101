@@ -1029,49 +1029,9 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       // Keep image captions but clean them up
       htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, '<p style="font-style: italic; color: #666; font-size: 14px; text-align: center; margin: 5px 0 20px 0;">Photo by$1</p>');
       
-      // Add JavaScript to hide featured image on single post pages after DOM loads
-      const hideFeatureImageScript = `
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Only run on single post pages (not archives, home, etc.)
-  if (document.body.classList.contains('single') || 
-      document.body.classList.contains('single-post') ||
-      document.querySelector('.single') ||
-      window.location.pathname.includes('css-fix-test') ||
-      window.location.pathname.includes('hybrid-test') ||
-      window.location.pathname.includes('final-test')) {
-    
-    // Find and hide all featured images that appear before content
-    const selectors = [
-      '.post-thumbnail',
-      '.entry-thumbnail', 
-      '.featured-image',
-      '.wp-post-image',
-      '.attachment-post-thumbnail',
-      'img[class*="wp-post-image"]',
-      'img[class*="attachment-post-thumbnail"]',
-      '.entry-header img',
-      '.post-header img',
-      'figure.wp-block-image'
-    ];
-    
-    selectors.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(el => {
-        // Only hide if it's not inside the main content area
-        const contentArea = el.closest('.entry-content, .post-content, .content, article .content');
-        if (!contentArea) {
-          el.style.display = 'none';
-        }
-      });
-    });
-  }
-});
-</script>`;
+      // Simple solution: Only content images, no featured media
       
-      htmlContent = hideFeatureImageScript + htmlContent;
-      
-      console.log(`🖼️ Hybrid solution: Featured image for excerpts, hidden on main article with CSS`);
+      console.log(`🖼️ Simple solution: Content images only, no featured media to prevent duplication`);
 
       // Remove the H1 title to prevent duplicate titles (WordPress handles the post title)
       htmlContent = htmlContent.replace(/^# .+$/gm, '');
@@ -1134,40 +1094,8 @@ document.addEventListener('DOMContentLoaded', function() {
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<p[^>]*><img[^>]*><\/p>/gm, '');
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<em>Photo by[^<]*<\/em>/gm, '');
       
-      // HYBRID SOLUTION: Upload featured image for excerpts, hide with CSS on individual posts
+      // FINAL SOLUTION: No featured media, only content images to prevent duplication
       let featuredMediaId = null;
-      
-      if (featuredImageUrl) {
-        try {
-          console.log(`🖼️ Uploading featured image to WordPress media library...`);
-          
-          // Download the image
-          const imageResponse = await fetch(featuredImageUrl);
-          const imageBuffer = await imageResponse.arrayBuffer();
-          const fileName = `blog-featured-${Date.now()}.jpg`;
-          
-          // Upload to WordPress media library
-          const mediaResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/media`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Basic ${authHeader}`,
-              'Content-Disposition': `attachment; filename="${fileName}"`,
-              'Content-Type': 'image/jpeg'
-            },
-            body: Buffer.from(imageBuffer)
-          });
-          
-          if (mediaResponse.ok) {
-            const mediaData = await mediaResponse.json();
-            featuredMediaId = mediaData.id;
-            console.log(`✅ Featured image uploaded to WordPress media library: ID ${featuredMediaId}`);
-          } else {
-            console.log(`⚠️ Failed to upload featured image: ${mediaResponse.status}`);
-          }
-        } catch (error) {
-          console.log(`⚠️ Featured image upload error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      }
       
       // Set finalHtmlContent to include the converted image HTML
       let finalHtmlContent = htmlContent;
@@ -1339,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', function() {
         categories: validCategoryIds,
         tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
-        featured_media: featuredMediaId, // Use uploaded featured image for excerpts
+        featured_media: null, // No featured media to prevent duplication
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
           _thumbnail_id: featuredImageUrl ? 'external' : '',
