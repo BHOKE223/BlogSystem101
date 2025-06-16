@@ -1023,18 +1023,71 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         console.log('Images found:', imageMatches);
       }
       
-      // Convert markdown images to WordPress block format
-      console.log(`🔍 Before image conversion: ${htmlContent.includes('![') ? 'Contains markdown images' : 'No markdown images found'}`);
-      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, `
+      // Upload images to WordPress media library and convert to proper blocks
+      const imageMatches = htmlContent.match(/!\[([^\]]*)\]\(([^)]+)\)/g);
+      if (imageMatches && imageMatches.length > 0) {
+        console.log(`🖼️ Processing ${imageMatches.length} images for WordPress media upload`);
+        
+        for (const imageMatch of imageMatches) {
+          const match = imageMatch.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+          if (match) {
+            const [fullMatch, altText, imageUrl] = match;
+            try {
+              // Download image and upload to WordPress media library
+              const imageResponse = await fetch(imageUrl);
+              const imageBuffer = await imageResponse.arrayBuffer();
+              const fileName = `blog-image-${Date.now()}.jpg`;
+              
+              // Upload to WordPress media library
+              const mediaResponse = await fetch(`${wordpressCredentials.siteUrl}/wp-json/wp/v2/media`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Basic ${btoa(`${wordpressCredentials.username}:${wordpressCredentials.password}`)}`,
+                  'Content-Disposition': `attachment; filename="${fileName}"`,
+                  'Content-Type': 'image/jpeg'
+                },
+                body: Buffer.from(imageBuffer)
+              });
+              
+              if (mediaResponse.ok) {
+                const mediaData = await mediaResponse.json();
+                console.log(`✅ Uploaded image to WordPress media library: ID ${mediaData.id}`);
+                
+                // Replace with WordPress image block using media ID
+                const wpImageBlock = `
+<!-- wp:image {"id":${mediaData.id},"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="${mediaData.source_url}" alt="${altText}" class="wp-image-${mediaData.id}"/></figure>
+<!-- /wp:image -->`;
+                
+                htmlContent = htmlContent.replace(fullMatch, wpImageBlock);
+              } else {
+                console.log(`⚠️ Failed to upload image, using direct URL fallback`);
+                // Fallback to direct URL with proper WordPress block format
+                const wpImageBlock = `
 <!-- wp:image {"sizeSlug":"large","linkDestination":"none"} -->
-<figure class="wp-block-image size-large"><img src="$2" alt="$1" style="width: 100%; max-width: 600px; height: auto; margin: 20px 0; border-radius: 8px;"/></figure>
-<!-- /wp:image -->`);
-      console.log(`🔍 After image conversion: ${htmlContent.includes('wp:image') ? 'Contains WordPress image blocks' : 'No WordPress image blocks found'}`);
+<figure class="wp-block-image size-large"><img src="${imageUrl}" alt="${altText}"/></figure>
+<!-- /wp:image -->`;
+                
+                htmlContent = htmlContent.replace(fullMatch, wpImageBlock);
+              }
+            } catch (error) {
+              console.log(`⚠️ Image processing error, using direct URL: ${error.message}`);
+              // Fallback to direct URL
+              const wpImageBlock = `
+<!-- wp:image {"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="${imageUrl}" alt="${altText}"/></figure>
+<!-- /wp:image -->`;
+              
+              htmlContent = htmlContent.replace(fullMatch, wpImageBlock);
+            }
+          }
+        }
+        
+        console.log(`🖼️ Processed all images - using WordPress media library approach`);
+      }
       
       // Keep image captions but clean them up
       htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, '<p style="font-style: italic; color: #666; font-size: 14px; text-align: center; margin: 5px 0 20px 0;">Photo by$1</p>');
-      
-      console.log(`🖼️ Converted images to WordPress blocks - single image display in content only`);
 
       // Remove the H1 title to prevent duplicate titles (WordPress handles the post title)
       htmlContent = htmlContent.replace(/^# .+$/gm, '');
