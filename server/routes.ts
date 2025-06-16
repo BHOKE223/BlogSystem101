@@ -103,34 +103,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "OpenAI API key not configured" });
       }
 
-      const prompt = `Generate 5 practical "how to" blog topics for "${keyword}" that provide actionable, step-by-step guidance.
+      const prompt = `Generate 5 practical blog topics for "${keyword}" that provide actionable, step-by-step guidance with natural, varied titles.
 
       CRITICAL REQUIREMENTS:
       - Focus on practical tutorials and step-by-step guides
       - Create titles that promise specific, actionable outcomes
+      - Use varied, natural language - avoid repetitive "How to" phrasing
       - Emphasize concrete methods, processes, and implementations
-      - Avoid general trends, outlooks, or theoretical content
       - Each topic should solve a real problem with clear steps
-      - Titles should start with "How to" or imply step-by-step guidance
       - Focus on life-changing, practical knowledge readers can immediately apply
       
-      EXAMPLES OF PREFERRED TOPICS:
-      ✓ "How to Build a Profitable Email List from Scratch in 30 Days"
-      ✓ "Step-by-Step Guide to Setting Up Automated Workflows"
-      ✓ "How to Create Professional Videos Using Only Your Phone"
-      ✓ "Complete Blueprint for Launching Your First Online Course"
+      EXAMPLES OF PREFERRED NATURAL TITLES:
+      ✓ "Building a Profitable Email List from Scratch in 30 Days"
+      ✓ "Complete Guide to Setting Up Automated Workflows"
+      ✓ "Creating Professional Videos with Just Your Phone"
+      ✓ "Launch Your First Online Course: A Step-by-Step Blueprint"
+      ✓ "Master Cold Email Outreach: 7 Templates That Get Results"
+      ✓ "Transform Your Website Traffic with These SEO Strategies"
       
       AVOID THESE TYPES:
       ✗ "The Future of Digital Marketing in 2025"
       ✗ "Top Trends in E-commerce"
       ✗ "Understanding the Impact of AI"
       ✗ "Why Social Media Marketing Matters"
+      ✗ Repetitive "How to" beginnings
       
       Return JSON:
       {
         "topics": [
           {
-            "title": "How to [specific actionable outcome]",
+            "title": "Natural, action-focused title without repetitive patterns",
             "description": "Step-by-step process description with clear benefits",
             "competition": "Low|Medium|High",
             "intent": "Educational"
