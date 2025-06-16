@@ -1104,14 +1104,19 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
           const imageBuffer = await imageResponse.arrayBuffer();
           const fileName = `featured-${Date.now()}.jpg`;
           
+          // Use FormData for proper file upload
+          const formData = new FormData();
+          const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
+          formData.append('file', blob, fileName);
+          formData.append('title', 'Featured Image');
+          formData.append('alt_text', 'Featured image for blog post');
+          
           const uploadResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/media`, {
             method: 'POST',
             headers: {
-              'Authorization': `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
-              'Content-Type': 'image/jpeg',
-              'Content-Disposition': `attachment; filename="${fileName}"`
+              'Authorization': `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
             },
-            body: imageBuffer
+            body: formData
           });
           
           if (uploadResponse.ok) {
@@ -1119,7 +1124,8 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
             featuredMediaId = uploadData.id;
             console.log(`✅ Featured media uploaded with ID: ${featuredMediaId}`);
           } else {
-            console.log(`⚠️ Featured image upload failed: ${uploadResponse.status}`);
+            const errorData = await uploadResponse.text();
+            console.log(`⚠️ Featured image upload failed: ${uploadResponse.status} - ${errorData}`);
           }
         } catch (error) {
           console.log(`⚠️ Failed to upload featured image: ${error instanceof Error ? error.message : 'Unknown error'}`);
