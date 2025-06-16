@@ -1094,58 +1094,55 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<p[^>]*><img[^>]*><\/p>/gm, '');
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<em>Photo by[^<]*<\/em>/gm, '');
       
-      // SOLUTION: No featured media to prevent API errors, use content image injection for excerpts
+      // SMART SOLUTION: Featured image for excerpts, NO content images to prevent duplication
       let featuredMediaId = null;
       
-      console.log(`🖼️ Using content-only approach with excerpt image injection`);
+      if (featuredImageUrl && featuredImageUrl.trim()) {
+        console.log(`🖼️ Uploading featured image for excerpts: ${featuredImageUrl}`);
+        try {
+          const imageResponse = await fetch(featuredImageUrl);
+          const imageBuffer = await imageResponse.arrayBuffer();
+          const fileName = `featured-${Date.now()}.jpg`;
+          
+          const uploadResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/media`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
+              'Content-Disposition': `attachment; filename="${fileName}"`
+            },
+            body: imageBuffer
+          });
+          
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            featuredMediaId = uploadData.id;
+            console.log(`✅ Featured media uploaded with ID: ${featuredMediaId}`);
+          } else {
+            console.log(`⚠️ Featured image upload failed: ${uploadResponse.status}`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Failed to upload featured image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
       
-      // Set finalHtmlContent to include the converted image HTML + CSS to hide featured image on individual posts
+      // Remove ALL images from content to prevent duplication (featured image handles display)
       let finalHtmlContent = htmlContent;
       
-      // Add CSS and JavaScript to manage image display properly
-      const imageManagementScript = `
-<style>
-/* Hide featured images on single posts, show on excerpts */
-.single-post .post-thumbnail,
-.single .post-thumbnail,
-article.single .featured-image,
-.single article .featured-image,
-.entry-header .post-thumbnail,
-.single .entry-header img,
-.single .wp-post-image {
-  display: none !important;
-}
-
-/* Ensure excerpt images are visible */
-.excerpt .post-thumbnail,
-.archive .post-thumbnail,
-.blog .post-thumbnail {
-  display: block !important;
-}
-</style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Additional JavaScript to ensure proper image handling
-  if (document.body.classList.contains('single') || document.body.classList.contains('single-post')) {
-    // Hide any featured images that might still show
-    const featuredImages = document.querySelectorAll('.post-thumbnail, .featured-image, .wp-post-image');
-    featuredImages.forEach(img => {
-      if (img.closest('.entry-header') || img.closest('.post-header')) {
-        img.style.display = 'none';
-      }
-    });
-  }
-});
-</script>`;
-
-      finalHtmlContent = imageManagementScript + finalHtmlContent;
+      // Strip out all image tags and related content
+      finalHtmlContent = finalHtmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, ''); // Remove markdown images
+      finalHtmlContent = finalHtmlContent.replace(/<img[^>]*>/g, ''); // Remove HTML img tags
+      finalHtmlContent = finalHtmlContent.replace(/<p[^>]*><\/p>/g, ''); // Remove empty paragraphs
+      finalHtmlContent = finalHtmlContent.replace(/\*Photo by[^*]*\*/g, ''); // Remove photo credits
+      finalHtmlContent = finalHtmlContent.replace(/<em>Photo by[^<]*<\/em>/g, ''); // Remove HTML photo credits
+      finalHtmlContent = finalHtmlContent.replace(/\n\s*\n/g, '\n'); // Clean up extra line breaks
+      
+      console.log(`🧹 Cleaned content: removed all images to prevent duplication with featured image`);
       
       // Debug: Check if images are in finalHtmlContent
       const imagesInFinal = finalHtmlContent.match(/<img[^>]*>/g);
       console.log(`🔍 Images in finalHtmlContent after conversion: ${imagesInFinal ? imagesInFinal.length : 0}`);
       
-      console.log(`🖼️ Hybrid solution: Featured image for excerpts, hidden on individual posts with CSS`);
+      console.log(`🎯 Smart solution: Featured image for both excerpts and posts, no content images`);
 
       // Create completely clean excerpt by processing the original content
       let cleanExcerpt = blog.content;
@@ -1312,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', function() {
         categories: validCategoryIds,
         tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
-        // No featured_media to prevent API errors
+        featured_media: featuredMediaId, // Featured image for excerpts and individual posts
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
           _wp_attachment_image_alt: 'Featured image'
