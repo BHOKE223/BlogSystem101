@@ -802,19 +802,23 @@ Example: {"searchTerms": ["sustainable fashion wardrobe", "eco friendly clothing
 
       let { wordpressUrl, username, password, categoryId, tags, metaDescription, seoData } = req.body;
       
-      // Always use verified working WordPress credentials
-      const VERIFIED_CREDENTIALS = {
-        wordpressUrl: "https://exoala.com",
-        username: "exoala@brenthoke.com", 
-        password: "lG2y KvcO SAMO nasv SFB9 LeOT"
-      };
-
-      // Use verified credentials unless user provides different ones
+      // Try to get credentials from database first, then fallback to request body
       if (!wordpressUrl || !username || !password) {
-        console.log("✅ Using verified working credentials");
-        wordpressUrl = VERIFIED_CREDENTIALS.wordpressUrl;
-        username = VERIFIED_CREDENTIALS.username;
-        password = VERIFIED_CREDENTIALS.password;
+        console.log("🔑 Retrieving WordPress credentials from database...");
+        const storedCredentials = await storage.getWordPressCredentials();
+        
+        if (storedCredentials) {
+          wordpressUrl = storedCredentials.wordpressUrl || wordpressUrl;
+          username = storedCredentials.username || username;
+          password = storedCredentials.password || password;
+          console.log("✅ Using stored credentials from database");
+        } else {
+          // Fallback to verified working credentials
+          console.log("⚠️ No stored credentials found, using verified fallback");
+          wordpressUrl = "https://exoala.com";
+          username = "exoala@brenthoke.com";
+          password = "lG2y KvcO SAMO nasv SFB9 LeOT";
+        }
       }
 
       // Final validation
