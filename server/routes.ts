@@ -103,23 +103,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "OpenAI API key not configured" });
       }
 
-      const prompt = `Generate 5 SEO blog topics for "${keyword}" that are current and relevant. 
+      const prompt = `Generate 5 practical "how to" blog topics for "${keyword}" that provide actionable, step-by-step guidance.
 
       CRITICAL REQUIREMENTS:
-      - Focus on current trends, latest technologies, and recent developments
-      - Avoid outdated references (2021, 2022, 2023, 2024)
-      - Use current terminology and industry standards
-      - Include emerging trends and forward-looking content
-      - Titles should be timeless and professional (avoid specific years in headlines)
+      - Focus on practical tutorials and step-by-step guides
+      - Create titles that promise specific, actionable outcomes
+      - Emphasize concrete methods, processes, and implementations
+      - Avoid general trends, outlooks, or theoretical content
+      - Each topic should solve a real problem with clear steps
+      - Titles should start with "How to" or imply step-by-step guidance
+      - Focus on life-changing, practical knowledge readers can immediately apply
+      
+      EXAMPLES OF PREFERRED TOPICS:
+      ✓ "How to Build a Profitable Email List from Scratch in 30 Days"
+      ✓ "Step-by-Step Guide to Setting Up Automated Workflows"
+      ✓ "How to Create Professional Videos Using Only Your Phone"
+      ✓ "Complete Blueprint for Launching Your First Online Course"
+      
+      AVOID THESE TYPES:
+      ✗ "The Future of Digital Marketing in 2025"
+      ✗ "Top Trends in E-commerce"
+      ✗ "Understanding the Impact of AI"
+      ✗ "Why Social Media Marketing Matters"
       
       Return JSON:
       {
         "topics": [
           {
-            "title": "Professional blog post title (current and timeless)",
-            "description": "Brief description focusing on current trends",
+            "title": "How to [specific actionable outcome]",
+            "description": "Step-by-step process description with clear benefits",
             "competition": "Low|Medium|High",
-            "intent": "Informational|Commercial|Educational"
+            "intent": "Educational"
           }
         ]
       }`;
@@ -191,6 +205,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
          - Conclusion (200 words): Complete summary + multiple action steps`
       }
 
+      STEP-BY-STEP TUTORIAL FOCUS - ACTIONABLE CONTENT:
+      📋 Create practical tutorials:
+      - Break down complex processes into numbered steps
+      - Include specific actions readers can take immediately
+      - Provide exact methods, tools, and implementations
+      - Focus on "how to do X" rather than "what is X"
+      - Include troubleshooting tips and common mistakes to avoid
+
+      🎯 Structure for maximum actionability:
+      - Lead with the outcome: "Here's exactly how to..."
+      - Number all major steps clearly (Step 1, Step 2, etc.)
+      - Include sub-steps with bullet points for detailed processes
+      - Add "Pro Tips" boxes for expert insights
+      - End each section with what the reader accomplished
+
       HUMAN WRITING STYLE - MUST SOUND LIKE A REAL EXPERT, NOT AI:
       ✂️ Remove filler phrases:
       - NEVER use: "It's important to note", "In today's fast-paced world", "Let's dive into", "This article will explore"
@@ -233,17 +262,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       - Include 5-7 authority links (.org, .edu, .gov)
       - NO placeholder brackets like [City], [Tool Name], [Address]
 
-      EXAMPLES OF HUMAN-LIKE CONTENT:
-      ✓ "Most marketers waste time on tactics that don't work. Here's what actually drives results."
-      ✓ "You'll find [Slack](https://slack.com) handles team communication better than email."
-      ✓ "But here's the thing most people miss..."
-      ✓ "And that's where things get interesting."
+      EXAMPLES OF STEP-BY-STEP TUTORIAL CONTENT:
+      ✓ "Here's exactly how to set up your first automated workflow:"
+      ✓ "Step 1: Download [Buffer](https://buffer.com) and create your account"
+      ✓ "Follow these three steps to avoid the most common mistakes:"
+      ✓ "By the end of this section, you'll have a working system that..."
+      ✓ "Pro tip: Skip the premium features until you master the basics."
+      ✓ "Most people get stuck here, but here's the simple fix..."
       
       WRONG - NEVER USE THESE AI PHRASES:
       ✗ "In today's digital landscape..."
       ✗ "Let's explore the world of..."
       ✗ "It's important to note that..."
       ✗ "This comprehensive guide will..."
+      ✗ "The benefits of X include..."
+      ✗ "X is a powerful tool that..."
 
       Return JSON:
       {
