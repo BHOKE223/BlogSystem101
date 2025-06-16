@@ -1024,7 +1024,9 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       }
       
       // Convert markdown images to HTML img tags in content
+      console.log(`🔍 Before image conversion: ${htmlContent.includes('![') ? 'Contains markdown images' : 'No markdown images found'}`);
       htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="width: 100%; max-width: 600px; height: auto; margin: 20px 0; border-radius: 8px;" />');
+      console.log(`🔍 After image conversion: ${htmlContent.includes('<img') ? 'Contains HTML images' : 'No HTML images found'}`);
       
       // Keep image captions but clean them up
       htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, '<p style="font-style: italic; color: #666; font-size: 14px; text-align: center; margin: 5px 0 20px 0;">Photo by$1</p>');
