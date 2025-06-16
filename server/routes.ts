@@ -1306,7 +1306,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         categories: validCategoryIds,
         tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
-        featured_media: featuredMediaId, // Featured image for excerpts and individual posts
+        // Remove featured_media to prevent display on individual posts
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
           _wp_attachment_image_alt: 'Featured image'
