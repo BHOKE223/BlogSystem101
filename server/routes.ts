@@ -1032,12 +1032,29 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       // Add CSS to hide featured image on single post pages while keeping it for excerpts
       const hideFeatureImageCSS = `
 <style>
-.single-post .post-thumbnail,
+/* Hide featured image on individual post pages only */
 .single .post-thumbnail,
-article.single .wp-post-image,
-.entry-header .wp-post-image,
-.post-header .wp-post-image {
+.single-post .post-thumbnail,
+.single .entry-thumbnail,
+.single .featured-image,
+.single .wp-post-image,
+.single .attachment-post-thumbnail,
+body.single .post-thumbnail,
+body.single .entry-thumbnail,
+body.single .featured-image,
+body.single .wp-post-image,
+body.single .attachment-post-thumbnail,
+.single-format-standard .post-thumbnail,
+.single-format-standard .entry-thumbnail,
+.page-template-single .post-thumbnail {
   display: none !important;
+}
+
+/* Ensure content images still display */
+.single .entry-content img,
+.single .post-content img,
+.single .content img {
+  display: block !important;
 }
 </style>`;
       
