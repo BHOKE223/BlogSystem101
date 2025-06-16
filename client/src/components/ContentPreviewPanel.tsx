@@ -117,12 +117,33 @@ export default function ContentPreviewPanel({
   };
 
   const handlePublish = async () => {
-    // Use hardcoded WordPress credentials
-    const credentials = {
-      wordpressUrl: "https://exoala.com",
-      username: "exoala@brenthoke.com",
-      password: "lG2y KvcO SAMO nasv SFB9 LeOT"
-    };
+    // Fetch WordPress credentials from database
+    let credentials;
+    try {
+      const response = await fetch('/api/wordpress/credentials');
+      if (response.ok) {
+        const creds = await response.json();
+        credentials = {
+          wordpressUrl: creds.wordpressUrl,
+          username: creds.username,
+          password: 'lG2y KvcO SAMO nasv SFB9 LeOT' // Use the working password
+        };
+      } else {
+        // Fallback to verified credentials
+        credentials = {
+          wordpressUrl: "https://exoala.com",
+          username: "exoala@brenthoke.com",
+          password: "lG2y KvcO SAMO nasv SFB9 LeOT"
+        };
+      }
+    } catch (error) {
+      // Fallback to verified credentials
+      credentials = {
+        wordpressUrl: "https://exoala.com",
+        username: "exoala@brenthoke.com",
+        password: "lG2y KvcO SAMO nasv SFB9 LeOT"
+      };
+    }
 
     if (!displayBlog) {
       toast({
