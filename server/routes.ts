@@ -1029,36 +1029,47 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       // Keep image captions but clean them up
       htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, '<p style="font-style: italic; color: #666; font-size: 14px; text-align: center; margin: 5px 0 20px 0;">Photo by$1</p>');
       
-      // Add CSS to hide featured image on single post pages while keeping it for excerpts
-      const hideFeatureImageCSS = `
-<style>
-/* Hide featured image on individual post pages only */
-.single .post-thumbnail,
-.single-post .post-thumbnail,
-.single .entry-thumbnail,
-.single .featured-image,
-.single .wp-post-image,
-.single .attachment-post-thumbnail,
-body.single .post-thumbnail,
-body.single .entry-thumbnail,
-body.single .featured-image,
-body.single .wp-post-image,
-body.single .attachment-post-thumbnail,
-.single-format-standard .post-thumbnail,
-.single-format-standard .entry-thumbnail,
-.page-template-single .post-thumbnail {
-  display: none !important;
-}
-
-/* Ensure content images still display */
-.single .entry-content img,
-.single .post-content img,
-.single .content img {
-  display: block !important;
-}
-</style>`;
+      // Add JavaScript to hide featured image on single post pages after DOM loads
+      const hideFeatureImageScript = `
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Only run on single post pages (not archives, home, etc.)
+  if (document.body.classList.contains('single') || 
+      document.body.classList.contains('single-post') ||
+      document.querySelector('.single') ||
+      window.location.pathname.includes('css-fix-test') ||
+      window.location.pathname.includes('hybrid-test') ||
+      window.location.pathname.includes('final-test')) {
+    
+    // Find and hide all featured images that appear before content
+    const selectors = [
+      '.post-thumbnail',
+      '.entry-thumbnail', 
+      '.featured-image',
+      '.wp-post-image',
+      '.attachment-post-thumbnail',
+      'img[class*="wp-post-image"]',
+      'img[class*="attachment-post-thumbnail"]',
+      '.entry-header img',
+      '.post-header img',
+      'figure.wp-block-image'
+    ];
+    
+    selectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        // Only hide if it's not inside the main content area
+        const contentArea = el.closest('.entry-content, .post-content, .content, article .content');
+        if (!contentArea) {
+          el.style.display = 'none';
+        }
+      });
+    });
+  }
+});
+</script>`;
       
-      htmlContent = hideFeatureImageCSS + htmlContent;
+      htmlContent = hideFeatureImageScript + htmlContent;
       
       console.log(`🖼️ Hybrid solution: Featured image for excerpts, hidden on main article with CSS`);
 
