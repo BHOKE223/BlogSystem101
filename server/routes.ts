@@ -1133,24 +1133,36 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
                 
                 // Remove all instances of the featured image from content to prevent duplicates
                 const imageUrl = firstImageMatch[2]; // Extract the URL from the match
-                const imageId = imageUrl.split('?')[0].split('/').pop(); // Get the unique image ID
+                const imageId = imageUrl.split('?')[0].split('/').pop() || 'unknown'; // Get the unique image ID
                 
                 // Escape special regex characters in imageId
                 const escapedImageId = imageId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 
-                // Remove markdown images with the same base URL/ID
-                finalHtmlContent = htmlContent.replace(new RegExp(`!\\[[^\\]]*\\]\\([^)]*${escapedImageId}[^)]*\\)`, 'g'), '').trim();
+                console.log(`🔍 Attempting to remove all instances of image: ${imageId}`);
+                console.log(`📝 Content before image removal (length: ${htmlContent.length})`);
                 
-                // Remove HTML img tags with the same image ID
+                // Step 1: Remove the entire first paragraph containing the image (markdown format)
+                finalHtmlContent = htmlContent.replace(new RegExp(`^.*!\\[[^\\]]*\\]\\([^)]*${escapedImageId}[^)]*\\).*$`, 'gm'), '').trim();
+                
+                // Step 2: Remove any remaining markdown images with the same ID
+                finalHtmlContent = finalHtmlContent.replace(new RegExp(`!\\[[^\\]]*\\]\\([^)]*${escapedImageId}[^)]*\\)`, 'g'), '').trim();
+                
+                // Step 3: Remove HTML img tags with the same image ID (multiple patterns)
                 finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src="[^"]*${escapedImageId}[^"]*"[^>]*>`, 'gi'), '').trim();
+                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src='[^']*${escapedImageId}[^']*'[^>]*>`, 'gi'), '').trim();
                 
-                // Remove any remaining img tags that contain the same image file
-                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src="[^"]*${featuredImageUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"]*"[^>]*>`, 'gi'), '').trim();
+                // Step 4: Remove paragraphs containing only the image
+                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<p[^>]*>\\s*<img[^>]*${escapedImageId}[^>]*>\\s*</p>`, 'gi'), '').trim();
                 
-                // Clean up empty paragraphs and photo credits
+                // Step 5: Remove the exact featured image URL if it appears
+                const escapedImageUrl = featuredImageUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src="[^"]*${escapedImageUrl}[^"]*"[^>]*>`, 'gi'), '').trim();
+                
+                // Step 6: Clean up empty paragraphs and photo credits
                 finalHtmlContent = finalHtmlContent.replace(/<p[^>]*>\s*<\/p>/g, '').trim();
                 finalHtmlContent = finalHtmlContent.replace(/<p[^>]*>\s*<em>Photo by[^<]*<\/em>\s*<\/p>/g, '').trim();
                 
+                console.log(`📝 Content after image removal (length: ${finalHtmlContent.length})`);
                 console.log(`🖼️ Removed all instances of featured image (${imageId}) from content to avoid duplicates`);
               } else {
                 console.warn(`⚠️ Featured image upload failed: ${uploadResponse.status} - continuing without featured image`);
