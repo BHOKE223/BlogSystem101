@@ -1108,6 +1108,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
             method: 'POST',
             headers: {
               'Authorization': `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
+              'Content-Type': 'image/jpeg',
               'Content-Disposition': `attachment; filename="${fileName}"`
             },
             body: imageBuffer
