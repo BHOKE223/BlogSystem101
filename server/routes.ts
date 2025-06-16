@@ -1008,30 +1008,22 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       // Convert markdown to WordPress blocks format that was working earlier
       let htmlContent = blog.content;
 
-      // Extract first image for content display
+      // Extract first image for featured image BEFORE any processing
       const firstImageMatch = blog.content.match(/!\[([^\]]*)\]\(([^)]+)\)/);
       let featuredImageUrl = '';
       if (firstImageMatch) {
         featuredImageUrl = firstImageMatch[2];
-        console.log(`Extracted image URL for content: ${featuredImageUrl}`);
+        console.log(`Extracted featured image URL: ${featuredImageUrl}`);
       }
 
-      // HYBRID SOLUTION: Set featured_media for excerpts, hide it on main article with CSS
+      // Keep all images in content - convert markdown images to HTML
       const imageMatches = htmlContent.match(/!\[([^\]]*)\]\(([^)]+)\)/g);
       console.log(`Found ${imageMatches ? imageMatches.length : 0} images in markdown content`);
       if (imageMatches) {
         console.log('Images found:', imageMatches);
       }
       
-      // Convert markdown images to HTML img tags in content
-      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="width: 100%; max-width: 600px; height: auto; margin: 20px 0; border-radius: 8px;" />');
-      
-      // Keep image captions but clean them up
-      htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, '<p style="font-style: italic; color: #666; font-size: 14px; text-align: center; margin: 5px 0 20px 0;">Photo by$1</p>');
-      
-      // Simple solution: Only content images, no featured media
-      
-      console.log(`🖼️ Simple solution: Content images only, no featured media to prevent duplication`);
+      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="width: 100%; height: auto; margin: 20px 0;" />');
 
       // Remove the H1 title to prevent duplicate titles (WordPress handles the post title)
       htmlContent = htmlContent.replace(/^# .+$/gm, '');
@@ -1094,17 +1086,67 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<p[^>]*><img[^>]*><\/p>/gm, '');
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<em>Photo by[^<]*<\/em>/gm, '');
       
-      // FINAL SOLUTION: No featured media, only content images to prevent duplication
+      // Upload featured image with non-blocking error handling
       let featuredMediaId = null;
-      
-      // Set finalHtmlContent to include the converted image HTML
       let finalHtmlContent = htmlContent;
-      
-      // Debug: Check if images are in finalHtmlContent
-      const imagesInFinal = finalHtmlContent.match(/<img[^>]*>/g);
-      console.log(`🔍 Images in finalHtmlContent after conversion: ${imagesInFinal ? imagesInFinal.length : 0}`);
-      
-      console.log(`🖼️ Simple solution: Content images only, no featured media to prevent duplication`);
+      if (featuredImageUrl && firstImageMatch) {
+        console.log(`🖼️ Attempting featured image upload: ${featuredImageUrl.substring(0, 80)}...`);
+        
+        try {
+          // Single attempt with reasonable timeout - don't let image upload block the entire publish
+          const imageController = new AbortController();
+          const imageTimeoutId = setTimeout(() => imageController.abort(), 8000);
+          
+          const imageResponse = await fetch(featuredImageUrl, {
+            signal: imageController.signal,
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BlogGen/1.0)' }
+          });
+          clearTimeout(imageTimeoutId);
+          
+          if (imageResponse.ok) {
+            const imageBuffer = await imageResponse.arrayBuffer();
+            
+            if (imageBuffer.byteLength > 0 && imageBuffer.byteLength < 10000000) { // Max 10MB
+              const contentType = featuredImageUrl.includes('.png') ? 'image/png' : 'image/jpeg';
+              const fileName = `featured-${Date.now()}.${contentType === 'image/png' ? 'png' : 'jpg'}`;
+              
+              const formData = new FormData();
+              formData.append('file', new Blob([imageBuffer], { type: contentType }), fileName);
+              formData.append('title', firstImageMatch[1] || 'Featured Image');
+              formData.append('alt_text', firstImageMatch[1] || '');
+              
+              const uploadController = new AbortController();
+              const uploadTimeoutId = setTimeout(() => uploadController.abort(), 12000);
+              
+              const uploadResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/media`, {
+                method: 'POST',
+                headers: { 'Authorization': `Basic ${authHeader}` },
+                body: formData,
+                signal: uploadController.signal
+              });
+              clearTimeout(uploadTimeoutId);
+              
+              if (uploadResponse.ok) {
+                const mediaData = await uploadResponse.json();
+                featuredMediaId = mediaData.id;
+                console.log(`✅ Featured image uploaded successfully: ID ${featuredMediaId}`);
+                
+                // Remove first image from content to prevent duplicate with featured image
+                finalHtmlContent = htmlContent.replace(firstImageMatch[0], '').trim();
+                console.log(`🖼️ Removed first image from content to avoid duplicate with featured image`);
+              } else {
+                console.warn(`⚠️ Featured image upload failed: ${uploadResponse.status} - continuing without featured image`);
+              }
+            } else {
+              console.warn(`⚠️ Invalid image size: ${imageBuffer.byteLength} bytes - continuing without featured image`);
+            }
+          } else {
+            console.warn(`⚠️ Failed to download image: ${imageResponse.status} - continuing without featured image`);
+          }
+        } catch (imageError) {
+          console.warn(`⚠️ Image upload error: ${imageError instanceof Error ? imageError.message : imageError} - continuing without featured image`);
+        }
+      }
 
       // Create completely clean excerpt by processing the original content
       let cleanExcerpt = blog.content;
@@ -1271,7 +1313,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         categories: validCategoryIds,
         tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
-        featured_media: null, // No featured media to prevent duplication
+        featured_media: featuredMediaId,
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
           _thumbnail_id: featuredImageUrl ? 'external' : '',
