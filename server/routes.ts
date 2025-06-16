@@ -1131,9 +1131,20 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
                 featuredMediaId = mediaData.id;
                 console.log(`✅ Featured image uploaded successfully: ID ${featuredMediaId}`);
                 
-                // Remove first image from content to prevent duplicate with featured image
-                finalHtmlContent = htmlContent.replace(firstImageMatch[0], '').trim();
-                console.log(`🖼️ Removed first image from content to avoid duplicate with featured image`);
+                // Remove all instances of the featured image from content to prevent duplicates
+                const imageUrl = firstImageMatch[2]; // Extract the URL from the match
+                const imageId = imageUrl.split('?')[0].split('/').pop(); // Get the unique image ID
+                
+                // Remove all images with the same base URL/ID
+                finalHtmlContent = htmlContent.replace(new RegExp(`!\\[[^\\]]*\\]\\([^)]*${imageId}[^)]*\\)`, 'g'), '').trim();
+                
+                // Also remove any HTML img tags with the same image ID
+                finalHtmlContent = finalHtmlContent.replace(new RegExp(`<img[^>]*src="[^"]*${imageId}[^"]*"[^>]*>`, 'g'), '').trim();
+                
+                // Clean up any empty paragraphs left behind
+                finalHtmlContent = finalHtmlContent.replace(/<p[^>]*>\s*<\/p>/g, '').trim();
+                
+                console.log(`🖼️ Removed all instances of featured image (${imageId}) from content to avoid duplicates`);
               } else {
                 console.warn(`⚠️ Featured image upload failed: ${uploadResponse.status} - continuing without featured image`);
               }
