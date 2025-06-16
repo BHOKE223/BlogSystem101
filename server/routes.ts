@@ -1320,7 +1320,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         categories: validCategoryIds,
         tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
-        featured_media: featuredMediaId,
+        featured_media: null, // Disable featured image to prevent theme duplication
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
           _thumbnail_id: featuredImageUrl ? 'external' : '',
