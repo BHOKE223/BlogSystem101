@@ -1008,26 +1008,28 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       // Convert markdown to WordPress blocks format that was working earlier
       let htmlContent = blog.content;
 
-      // Skip all image extraction and processing to prevent any image display
-      const firstImageMatch = null;
+      // Extract first image for content display
+      const firstImageMatch = blog.content.match(/!\[([^\]]*)\]\(([^)]+)\)/);
       let featuredImageUrl = '';
+      if (firstImageMatch) {
+        featuredImageUrl = firstImageMatch[2];
+        console.log(`Extracted image URL for content: ${featuredImageUrl}`);
+      }
 
-      // OPTION A: Remove ALL images from content (only use featured_media)
+      // OPTION B: Keep images in content, don't set featured_media
       const imageMatches = htmlContent.match(/!\[([^\]]*)\]\(([^)]+)\)/g);
       console.log(`Found ${imageMatches ? imageMatches.length : 0} images in markdown content`);
       if (imageMatches) {
         console.log('Images found:', imageMatches);
       }
       
-      // Remove ALL markdown images from content
-      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '');
+      // Convert markdown images to HTML img tags in content
+      htmlContent = htmlContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="width: 100%; max-width: 600px; height: auto; margin: 20px 0; border-radius: 8px;" />');
       
-      // Remove image captions and photo credits
-      htmlContent = htmlContent.replace(/\*Photo by[^*]*\*/g, '');
-      htmlContent = htmlContent.replace(/\*[^*]*Unsplash[^*]*\*/g, '');
-      htmlContent = htmlContent.replace(/\*[^*]*Photo[^*]*\*/g, '');
+      // Keep image captions but clean them up
+      htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, '<p style="font-style: italic; color: #666; font-size: 14px; text-align: center; margin: 5px 0 20px 0;">Photo by$1</p>');
       
-      console.log(`🖼️ Removed ALL images from content - using featured_media only`);
+      console.log(`🖼️ Converted images to HTML - single image display in content only`);
 
       // Remove the H1 title to prevent duplicate titles (WordPress handles the post title)
       htmlContent = htmlContent.replace(/^# .+$/gm, '');
@@ -1090,12 +1092,12 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<p[^>]*><img[^>]*><\/p>/gm, '');
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<em>Photo by[^<]*<\/em>/gm, '');
       
-      // Skip featured image upload entirely to prevent theme duplication
+      // Option B: No featured image upload, only content images
       let featuredMediaId = null;
-      // Set finalHtmlContent to the cleaned version without any images
+      // Set finalHtmlContent to include the converted image HTML
       let finalHtmlContent = htmlContent;
       
-      console.log(`🖼️ Skipping featured image upload to prevent theme duplication - clean content only`);
+      console.log(`🖼️ Option B: Images in content only, no featured_media to prevent duplication`);
 
       // Create completely clean excerpt by processing the original content
       let cleanExcerpt = blog.content;
