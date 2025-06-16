@@ -49,7 +49,7 @@ export const users = pgTable("users", {
 
 export const wordpressCredentials = pgTable("wordpress_credentials", {
   id: serial("id").primaryKey(),
-  userId: serial("user_id").references(() => users.id),
+  userId: integer("user_id").references(() => users.id),
   name: text("name").notNull(), // friendly name for the credential set
   wordpressUrl: text("wordpress_url").notNull(),
   username: text("username").notNull(),
@@ -60,7 +60,7 @@ export const wordpressCredentials = pgTable("wordpress_credentials", {
 
 export const githubCredentials = pgTable("github_credentials", {
   id: serial("id").primaryKey(),
-  userId: serial("user_id").references(() => users.id),
+  userId: integer("user_id").references(() => users.id),
   name: text("name").notNull(), // friendly name for the credential set
   githubToken: text("github_token").notNull(), // GitHub personal access token
   repositoryOwner: text("repository_owner").notNull(), // GitHub username or org
@@ -77,7 +77,7 @@ export const fileBackupHistory = pgTable("file_backup_history", {
   fileHash: text("file_hash").notNull(),
   githubCommitSha: text("github_commit_sha"),
   lastBackupAt: timestamp("last_backup_at").defaultNow().notNull(),
-  fileSize: serial("file_size").notNull(),
+  fileSize: integer("file_size").notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
