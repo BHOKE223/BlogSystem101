@@ -1016,7 +1016,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         console.log(`Extracted image URL for content: ${featuredImageUrl}`);
       }
 
-      // OPTION B: Keep images in content, don't set featured_media
+      // HYBRID SOLUTION: Set featured_media for excerpts, hide it on main article with CSS
       const imageMatches = htmlContent.match(/!\[([^\]]*)\]\(([^)]+)\)/g);
       console.log(`Found ${imageMatches ? imageMatches.length : 0} images in markdown content`);
       if (imageMatches) {
@@ -1029,7 +1029,21 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       // Keep image captions but clean them up
       htmlContent = htmlContent.replace(/\*Photo by([^*]*)\*/g, '<p style="font-style: italic; color: #666; font-size: 14px; text-align: center; margin: 5px 0 20px 0;">Photo by$1</p>');
       
-      console.log(`🖼️ Converted images to HTML - single image display in content only`);
+      // Add CSS to hide featured image on single post pages while keeping it for excerpts
+      const hideFeatureImageCSS = `
+<style>
+.single-post .post-thumbnail,
+.single .post-thumbnail,
+article.single .wp-post-image,
+.entry-header .wp-post-image,
+.post-header .wp-post-image {
+  display: none !important;
+}
+</style>`;
+      
+      htmlContent = hideFeatureImageCSS + htmlContent;
+      
+      console.log(`🖼️ Hybrid solution: Featured image for excerpts, hidden on main article with CSS`);
 
       // Remove the H1 title to prevent duplicate titles (WordPress handles the post title)
       htmlContent = htmlContent.replace(/^# .+$/gm, '');
@@ -1092,12 +1106,45 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<p[^>]*><img[^>]*><\/p>/gm, '');
       cleanHtmlContentForExcerpt = cleanHtmlContentForExcerpt.replace(/<em>Photo by[^<]*<\/em>/gm, '');
       
-      // Option B: No featured image upload, only content images
+      // HYBRID SOLUTION: Upload featured image for excerpts, hide with CSS on individual posts
       let featuredMediaId = null;
+      
+      if (featuredImageUrl) {
+        try {
+          console.log(`🖼️ Uploading featured image to WordPress media library...`);
+          
+          // Download the image
+          const imageResponse = await fetch(featuredImageUrl);
+          const imageBuffer = await imageResponse.arrayBuffer();
+          const fileName = `blog-featured-${Date.now()}.jpg`;
+          
+          // Upload to WordPress media library
+          const mediaResponse = await fetch(`${wordpressUrl}/wp-json/wp/v2/media`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${authHeader}`,
+              'Content-Disposition': `attachment; filename="${fileName}"`,
+              'Content-Type': 'image/jpeg'
+            },
+            body: Buffer.from(imageBuffer)
+          });
+          
+          if (mediaResponse.ok) {
+            const mediaData = await mediaResponse.json();
+            featuredMediaId = mediaData.id;
+            console.log(`✅ Featured image uploaded to WordPress media library: ID ${featuredMediaId}`);
+          } else {
+            console.log(`⚠️ Failed to upload featured image: ${mediaResponse.status}`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Featured image upload error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+      
       // Set finalHtmlContent to include the converted image HTML
       let finalHtmlContent = htmlContent;
       
-      console.log(`🖼️ Option B: Images in content only, no featured_media to prevent duplication`);
+      console.log(`🖼️ Hybrid solution: Featured image for excerpts, hidden on individual posts with CSS`);
 
       // Create completely clean excerpt by processing the original content
       let cleanExcerpt = blog.content;
@@ -1264,7 +1311,7 @@ Analyze the content deeply and return ONLY a comma-separated list of highly spec
         categories: validCategoryIds,
         tags: validTagIds,
         excerpt: cleanExcerpt, // Always use our clean excerpt
-        featured_media: null, // Disable featured image to prevent theme duplication
+        featured_media: featuredMediaId, // Use uploaded featured image for excerpts
         meta: {
           _yoast_wpseo_metadesc: metaDescription || cleanExcerpt,
           _thumbnail_id: featuredImageUrl ? 'external' : '',
